@@ -6,9 +6,6 @@
 <title>TA1</title>
 <link rel="icon" href="mus/favicon1.png" type="image/png">
 
-<!-- Librería corregida para leer metadatos -->
-<script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.10/dist/index.min.js"></script>
-
 <style>
   :root{
     --crt-bg:#050505;
@@ -26,7 +23,7 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
     letter-spacing: .2px; text-shadow:0 0 6px rgba(255,214,74,.25);
     overflow:hidden;
-    cursor: url('http://www.rw-designer.com/cursor-extern.php?id=212058'), auto;
+    cursor: default;
   }
   .scanlines::after{content:""; pointer-events:none; position:fixed; inset:0; background:repeating-linear-gradient( to bottom, rgba(255,255,255,.03), rgba(255,255,255,.03) 1px, transparent 2px, transparent 3px); }
   .vignette::before{content:""; position:fixed; inset:0; pointer-events:none; box-shadow: inset 0 0 120px 40px #000;}
@@ -44,7 +41,7 @@
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; border: 1px solid var(--box); }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
   .player, button, a, .song-item, input, textarea, .toggleClock, .gear-toggle-container, .btn {
-    cursor: url('http://www.rw-designer.com/cursor-extern.php?id=212059'), pointer;
+    cursor: pointer;
   }
  
   .app{display:none; height:100%;}
@@ -163,6 +160,9 @@
     <input type="checkbox" id="disableBootToggle" style="display:none">
   </button>
 </div>
+
+<!-- Librería de metadatos cargada al final -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
 
 <script>
 const bootText = document.getElementById('bootText');
@@ -317,35 +317,44 @@ function fallbackMetadata(file) {
   return { title, artist, album, year, picture };
 }
 
+// FUNCIÓN DE EXTRACCIÓN DE METADATOS - VERSIÓN MEJORADA
 function extractMetadata(file) {
   return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        // CORREGIDO: Usar mm en lugar de musicmetadata
-        const metadata = await mm.parseBlob(file);
+    // Verificar si jsmediatags está disponible
+    if (typeof window.jsmediatags === 'undefined') {
+      console.warn("jsmediatags no disponible, usando fallback");
+      resolve(fallbackMetadata(file));
+      return;
+    }
 
-        const common = metadata.common || {};
-
-        let title  = common.title  || file.name.replace(/\.[^/.]+$/, "");
-        let artist = common.artists?.[0] || common.artist || "Artista desconocido";
-        let album  = common.album  || "Álbum desconocido";
-        let year   = common.year   || "Año desconocido";
-
-        let picture = null;
-        if (common.picture && common.picture.length > 0) {
-          const pic = common.picture[0];
-          picture = URL.createObjectURL(new Blob([pic.data], { type: pic.format }));
+    window.jsmediatags.read(file, {
+      onSuccess: function(tag) {
+        try {
+          const tags = tag.tags;
+          
+          let title = tags.title || file.name.replace(/\.[^/.]+$/, "");
+          let artist = tags.artist || "Artista desconocido";
+          let album = tags.album || "Álbum desconocido";
+          let year = tags.year || "Año desconocido";
+          
+          let picture = null;
+          if (tags.picture) {
+            const pic = tags.picture;
+            const base64String = pic.data.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+            picture = `data:${pic.format};base64,${btoa(base64String)}`;
+          }
+          
+          resolve({ title, artist, album, year, picture });
+        } catch (err) {
+          console.warn("Error procesando tags:", err);
+          resolve(fallbackMetadata(file));
         }
-
-        resolve({ title, artist, album, year, picture });
-      } catch (err) {
-        console.warn("Error leyendo metadatos:", err);
+      },
+      onError: function(error) {
+          
         resolve(fallbackMetadata(file));
       }
-    };
-    reader.onerror = () => resolve(fallbackMetadata(file));
-    reader.readAsArrayBuffer(file);
+    });
   });
 }
 
