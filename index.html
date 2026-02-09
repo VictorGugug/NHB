@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TA1</title>
+<link rel="icon" href="mus/favicon1.png" type="image/png">
+
+<!-- Librería corregida para leer metadatos -->
+<script src="https://cdn.jsdelivr.net/npm/music-metadata-browser@2.5.10/dist/index.min.js"></script>
+
+<style>
+  :root{
+    --crt-bg:#050505;
+    --crt-fg:#f8e88a;
+    --crt-dim:#9c9056;
+    --crt-warn:#ff4545;
+    --crt-purple:#8A2BE2;
+    --accent:#ffd54a;
+    --box:#141414;
+    --border:#d5b653;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--crt-bg); color:var(--crt-fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+    letter-spacing: .2px; text-shadow:0 0 6px rgba(255,214,74,.25);
+    overflow:hidden;
+    cursor: url('http://www.rw-designer.com/cursor-extern.php?id=212058'), auto;
+  }
+  .scanlines::after{content:""; pointer-events:none; position:fixed; inset:0; background:repeating-linear-gradient( to bottom, rgba(255,255,255,.03), rgba(255,255,255,.03) 1px, transparent 2px, transparent 3px); }
+  .vignette::before{content:""; position:fixed; inset:0; pointer-events:none; box-shadow: inset 0 0 120px 40px #000;}
+  .bezel{border:2px solid var(--border); border-radius:10px; box-shadow:0 0 18px rgba(255,214,74,.15), inset 0 0 10px rgba(255,214,74,.08);}
+  .blink{animation:blink 1s steps(1) infinite;} @keyframes blink{50%{opacity:0}}
+  .flicker{animation:flicker 2s infinite;} @keyframes flicker{0%,100%{opacity:1} 10%{opacity:.8} 20%{opacity:.6} 30%{opacity:.9} 40%{opacity:.7} 50%{opacity:1} 70%{opacity:.85} 90%{opacity:.95}}
+  .glitch{position:relative;}
+  .glitch::before,.glitch::after{content:attr(data-text); position:absolute; left:0; top:0; clip-path:inset(0 0 0 0);}
+  .glitch::before{transform:translate(1px,0); color:var(--crt-warn); opacity:.8; animation:gl1 800ms infinite;}
+  .glitch::after{transform:translate(-1px,0); color:#fff; opacity:.3; animation:gl2 800ms infinite;}
+  @keyframes gl1{0%{clip-path:inset(0 0 85% 0)} 20%{clip-path:inset(10% 0 60% 0)} 40%{clip-path:inset(80% 0 5% 0)} 60%{clip-path:inset(50% 0 20% 0)} 80%{clip-path:inset(30% 0 50% 0)} 100%{clip-path:inset(15% 0 70% 0)}}
+  @keyframes gl2{0%{clip-path:inset(85% 0 0 0)} 20%{clip-path:inset(60% 0 10% 0)} 40%{clip-path:inset(5% 0 80% 0)} 60%{clip-path:inset(20% 0 50% 0)} 80%{clip-path:inset(50% 0 30% 0)} 100%{clip-path:inset(70% 0 15% 0)}}
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--box); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; border: 1px solid var(--box); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+  .player, button, a, .song-item, input, textarea, .toggleClock, .gear-toggle-container, .btn {
+    cursor: url('http://www.rw-designer.com/cursor-extern.php?id=212059'), pointer;
+  }
+ 
+  .app{display:none; height:100%;}
+  .grid{display:grid; grid-template-columns: 1fr; grid-template-rows: 1fr; height:100%; gap:12px; padding:12px; box-sizing:border-box;}
+  .playerWrap{display:flex; flex-direction: column; align-items:center; justify-content:center; height:100%;}
+ 
+  .toggleClock{ position: fixed; top: 12px; left: 12px; padding: 8px 12px; background: var(--box); border: 2px solid var(--border); border-radius: 8px; font-weight: bold; z-index: 10; }
+  .clockPanel{
+    position: fixed; top: 60px; left: 12px; width: 0; height: 0; opacity: 0; overflow: hidden;
+    transition: all 0.4s ease-in-out; background: var(--box); padding: 0; border-radius: 12px;
+    display:flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .clockPanel.active{ width: 280px; height: 180px; opacity: 1; padding: 12px; box-shadow: 0 0 18px rgba(255,214,74,.15), inset 0 0 10px rgba(255,214,74,.08); border: 2px solid var(--border); }
+  .full-time-box{ font-size: 2.5em; font-weight: bold; }
+  .full-date-box{ font-size: 1em; color:var(--crt-dim) }
+  .mini-12h{ font-size: 1.2em; margin-top: 10px; }
+ 
+  .player{max-width:720px; width:100%; background:#0c0c0c; padding:18px; border-radius:14px; border:2px solid var(--border); box-shadow:0 0 22px rgba(255,214,74,.12), inset 0 0 10px rgba(255,214,74,.05);}
+  .player .header{display:flex; gap:16px; align-items:center;}
+  .cover{width:180px; height:180px; object-fit:cover; border-radius:10px; border:2px solid var(--border); background:#111;}
+  .meta{flex:1;}
+  .title{font-size:26px; margin:0 0 6px;}
+  .artist{margin:0; color:var(--crt-dim)}
+  .album-info{font-size:14px; color:var(--crt-dim); margin:5px 0;}
+  .year-info{font-size:12px; color:var(--crt-purple);}
+  .controls{display:flex; align-items:center; gap:12px; margin-top:12px;}
+  button, .btn{background:transparent; color:var(--crt-fg); border:2px solid var(--border); padding:6px 10px; border-radius:8px; font-weight:700;}
+  .btn-remove{background:var(--crt-warn); color:#fff; border-color:#ff0000; padding:4px 8px; font-size:12px;}
+  .progress{margin-top:12px;}
+  .bar{height:10px; background:#1a1a1a; border:2px solid var(--border); border-radius:8px; overflow:hidden; cursor:pointer;}
+  .bar > div{height:100%; width:0%; background:linear-gradient(90deg, var(--accent), #bca24b); transition:width .1s linear;}
+  .time{display:flex; justify-content:space-between; color:var(--crt-dim); font-size:14px; margin-top:6px;}
+  .playlist{margin-top:16px; border-top:2px dashed var(--border); padding-top:10px; max-height:36vh; overflow:auto;}
+  .song{display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px; cursor:pointer; transition:background 0.3s;}
+  .song:hover{background:#1a1a1a;}
+  .song.active{background:#13110b; border:1px dashed var(--border);}
+  .song .thumb{width:40px; height:40px; border:1px solid var(--border); object-fit:cover; border-radius:6px; background:#111}
+  .song-info{flex:1; min-width:0;}
+  .song-title{font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .song-artist{font-size:12px; color:var(--crt-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .song-remove{opacity:0; transition:opacity 0.3s; background:transparent; border:none; color:var(--crt-warn); cursor:pointer; font-size:16px; padding:0 5px;}
+  .song:hover .song-remove{opacity:1;}
+  .bottom-text { text-align: center; margin-top: 10px; }
+  .bottom-text a { text-decoration: none; color: inherit; }
+  #boot{position:absolute; inset:12px; padding:16px; background:var(--box); z-index:1000;}
+  #boot pre{margin:0; white-space:pre-wrap;}
+  .enter{color:var(--accent);}
+  .errorlog{color:var(--crt-warn); text-shadow:0 0 8px rgba(255,0,0,.35);}
+  .redBlink{animation:redblink .35s steps(1) 10;} @keyframes redblink{50%{opacity:0}}
+  .gear-toggle-container { position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px; z-index: 10; display: flex; align-items: center; justify-content: center; background: none; border: none; }
+  .gear-icon { width: 50px; height: 50px; fill: var(--border); animation: rotate-gear 4s linear infinite; }
+  @keyframes rotate-gear { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  #configToast { position: fixed; top: 20px; right: 20px; background: var(--box); border: 2px solid var(--border); color: var(--crt-fg); padding: 10px 20px; border-radius: 8px; font-weight: bold; opacity: 0; transition: opacity 0.3s; z-index: 200; pointer-events: none; }
+  .metadata-loading{color:var(--accent); font-style:italic; font-size:12px;}
+</style>
+</head>
+<body class="scanlines vignette">
+<div id="configToast" class="bezel"></div>
+<div id="boot" class="bezel">
+  <pre id="bootText" aria-live="polite"></pre>
+  <div id="pressEnter" class="enter blink" style="margin-top:10px">[PRESS ENTER TO START] - [S PARA SKIPEAR]</div>
+</div>
+<div class="app" id="app">
+  <div class="grid" id="mainGrid">
+    <div class="toggleClock" id="toggleClock">⏰</div>
+    <div class="clockPanel" id="clockPanel">
+      <div class="full-time-box" id="time24h">00:00</div>
+      <div class="full-date-box" id="dateBox">--/--</div>
+      <div class="mini-12h" id="time12h">00:00 AM</div>
+    </div>
+   
+    <div class="playerWrap">
+      <div class="player bezel" id="playerUI">
+        <div class="header">
+          <img id="cover" class="cover" alt="cover">
+          <div class="meta">
+            <h2 class="title" id="title">—</h2>
+            <p class="artist" id="artist">—</p>
+            <div class="album-info" id="album">—</div>
+            <div class="year-info" id="year">—</div>
+            <div class="controls">
+              <button id="prev">⏮</button>
+              <button id="play">▶</button>
+              <button id="pause" style="display:none">⏸</button>
+              <button id="next">⏭</button>
+              <button id="loop">↻</button>
+              <button id="shuffle">🔀</button>
+              <label class="btn" for="filePick">+ Añadir canciones</label>
+              <input id="filePick" type="file" accept="audio/*" multiple style="display:none">
+            </div>
+            <div class="progress">
+              <div class="bar" id="progressBar"><div id="bar"></div></div>
+              <div class="time"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="playlist" id="playlist"></div>
+        <audio id="audio" preload="auto"></audio>
+      </div>
+    </div>
+    <div class="bottom-text"><a href="#">I LOV YU N-IGGA</a></div>
+  </div>
+ 
+  <button class="gear-toggle-container" id="gearToggle">
+    <svg class="gear-icon" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="20" fill="var(--box)" stroke="var(--border)" stroke-width="2"/>
+      <g id="teeth">
+        <rect x="45" y="5" width="10" height="15" rx="2"/><rect x="45" y="80" width="10" height="15" rx="2"/>
+        <rect x="5" y="45" width="15" height="10" rx="2"/><rect x="80" y="45" width="15" height="10" rx="2"/>
+        <rect x="18" y="18" width="11" height="11" rx="2" transform="rotate(45 23.5 23.5)"/>
+        <rect x="71" y="71" width="11" height="11" rx="2" transform="rotate(45 76.5 76.5)"/>
+        <rect x="71" y="18" width="11" height="11" rx="2" transform="rotate(-45 76.5 23.5)"/>
+        <rect x="18" y="71" width="11" height="11" rx="2" transform="rotate(-45 23.5 76.5)"/>
+      </g>
+    </svg>
+    <input type="checkbox" id="disableBootToggle" style="display:none">
+  </button>
+</div>
+
+<script>
+const bootText = document.getElementById('bootText');
+const pressEnter = document.getElementById('pressEnter');
+const bootScreen = document.getElementById('boot');
+const appScreen = document.getElementById('app');
+const disableBootToggle = document.getElementById('disableBootToggle');
+const gearToggle = document.getElementById('gearToggle');
+const toast = document.getElementById('configToast');
+const BOOT_DISABLED_KEY = 'boot_disabled_v3';
+let bootStarted = false;
+let bootInProgress = false;
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.style.opacity = 1;
+  setTimeout(() => { toast.style.opacity = 0; }, 2000);
+}
+
+if (localStorage.getItem(BOOT_DISABLED_KEY) === 'true') {
+  bootScreen.style.display = 'none';
+  appScreen.style.display = 'grid';
+  disableBootToggle.checked = true;
+  bootStarted = true;
+}
+
+gearToggle.addEventListener('click', (e) => {
+  e.preventDefault();
+  const newState = !disableBootToggle.checked;
+  disableBootToggle.checked = newState;
+  localStorage.setItem(BOOT_DISABLED_KEY, newState ? 'true' : 'false');
+  showToast(newState ? "INICIO DESACTIVADO" : "INICIO ACTIVADO");
+});
+
+const bootLines = [
+  '>>> INITIALIZING [DISASSEMBLY DRONE UNIT: DDM-04]',
+  '>>> Core Systems: ONLINE',
+  '>>> Neural Combat Subroutines: ACTIVE',
+  '>>> Memory Integrity: [ERROR - PARTIAL CORRUPTION]',
+  '>>> Weapon Systems: ONLINE [Scythe Arm / Plasma Projector]',
+  '>>> Stealth Mode: ENGAGED',
+  '>>> Directive Override: [HUNTING - COPPER BLOOD DETECTED]'
+];
+
+let timeouts = [];
+
+function addLine(t, text){
+  let to = setTimeout(()=>{ bootText.textContent += (bootText.textContent?"\n":"") + text; }, t);
+  timeouts.push(to);
+}
+
+function skipBoot() {
+  timeouts.forEach(clearTimeout);
+  bootStarted = true;
+  bootInProgress = false;
+  bootScreen.style.display = 'none';
+  appScreen.style.display = 'grid';
+}
+
+function startBoot(){
+  if(bootStarted || bootInProgress) return;
+  bootInProgress = true;
+  pressEnter.style.display='none';
+  bootText.textContent = '';
+  const timings = [0, 600, 1200, 1800, 2400, 3000, 3400];
+  bootLines.forEach((ln, i)=> addLine(timings[i], ln));
+  timeouts.push(setTimeout(()=>{
+    bootText.innerHTML += '\n\n<span class="glitch errorlog redBlink" data-text="--- ERROR LOG ---">--- ERROR LOG ---</span>' +
+    '\n· Core Fragmentation Detected' + '\n· Memory Sectors 7A-9F Unstable';
+  }, 3800));
+  timeouts.push(setTimeout(()=>{ bootText.innerHTML += '\n\n[EXECUTION PRIORITY: TERMINATE WORKER DRONES]'; }, 4800));
+  timeouts.push(setTimeout(skipBoot, 6000));
+}
+
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  if (!bootStarted) {
+    if (key === 's') skipBoot();
+    else if (key === 'enter') startBoot();
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (!bootStarted && !bootInProgress && !e.target.closest('#gearToggle')) startBoot();
+});
+
+function updateClock(){
+  const now = new Date();
+  document.getElementById('time24h').textContent = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('dateBox').textContent = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+  document.getElementById('time12h').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+document.getElementById('toggleClock').onclick = () => document.getElementById('clockPanel').classList.toggle('active');
+
+const audio = document.getElementById('audio');
+const cover = document.getElementById('cover');
+const titleEl = document.getElementById('title');
+const artistEl = document.getElementById('artist');
+const albumEl = document.getElementById('album');
+const yearEl = document.getElementById('year');
+const bar = document.getElementById('bar');
+const tCur = document.getElementById('tCur');
+const tDur = document.getElementById('tDur');
+const btnPlay = document.getElementById('play');
+const btnPause = document.getElementById('pause');
+const playlistEl = document.getElementById('playlist');
+
+// CANCIONES ORIGINALES
+let songs = [
+  { title: 'Falling with you', artist: 'AJ DiSpirito', src: 'mus/Falling with you.mp3', image: 'mus/Falling with you.jpeg' },
+  { title: 'The HuMaN Gala', artist: 'AJ DiSpirito', src: 'mus/The HuMaN Gala.mp3', image: 'mus/The HuMaN Gala.jpeg', easterEgg: 'mus/The HuMaN Galap.jpeg' },
+  { title: 'Moon Waltz', artist: 'Cojum Dip', src: 'mus/Waltz in E-Major, Op. 15 ＂Moon Waltz＂.mp3', image: 'mus/Waltz in E-Major, Op. 15 ＂Moon Waltz＂.jpeg' },
+  { title: 'No Eyed Girl', artist: 'Lemon Demon', src: 'mus/No Eyed Girl.mp3', image: 'mus/SP.jpeg', easterEgg: 'mus/NC.jpeg' },
+  { title: 'Ancient Aliens', artist: 'Lemon Demon', src: 'mus/Ancient Aliens.mp3', image: 'mus/SP.jpeg', easterEgg: 'mus/NC.jpeg' }
+];
+
+let currentIdx = 0;
+let eeState = {};
+let isLooping = false;
+let isShuffled = false;
+let originalSongsOrder = [...songs];
+
+function initEE() {
+  const rolls = {};
+  songs.forEach(s => {
+    if(s.easterEgg && !(s.artist in rolls)) rolls[s.artist] = Math.random() < 0.5;
+    if(s.easterEgg) eeState[s.title] = rolls[s.artist];
+  });
+}
+
+function fallbackMetadata(file) {
+  const name = file.name.replace(/\.[^/.]+$/, "");
+  let title = name;
+  let artist = "Artista desconocido";
+  let album = "Álbum desconocido";
+  let year = "Año desconocido";
+  let picture = null;
+
+  const parts = name.split(/[-–—]/).map(p => p.trim());
+  if (parts.length >= 2) {
+    artist = parts[0];
+    title = parts.slice(1).join(" - ");
+  }
+  if (parts.length >= 3) {
+    album = parts[2];
+  }
+
+  return { title, artist, album, year, picture };
+}
+
+function extractMetadata(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        // CORREGIDO: Usar mm en lugar de musicmetadata
+        const metadata = await mm.parseBlob(file);
+
+        const common = metadata.common || {};
+
+        let title  = common.title  || file.name.replace(/\.[^/.]+$/, "");
+        let artist = common.artists?.[0] || common.artist || "Artista desconocido";
+        let album  = common.album  || "Álbum desconocido";
+        let year   = common.year   || "Año desconocido";
+
+        let picture = null;
+        if (common.picture && common.picture.length > 0) {
+          const pic = common.picture[0];
+          picture = URL.createObjectURL(new Blob([pic.data], { type: pic.format }));
+        }
+
+        resolve({ title, artist, album, year, picture });
+      } catch (err) {
+        console.warn("Error leyendo metadatos:", err);
+        resolve(fallbackMetadata(file));
+      }
+    };
+    reader.onerror = () => resolve(fallbackMetadata(file));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function addLocalSongs(files) {
+  showToast(`Procesando ${files.length} canción(es)...`);
+  
+  for (let file of files) {
+    try {
+      const metadata = await extractMetadata(file);
+      const url = URL.createObjectURL(file);
+      
+      const newSong = {
+        title: metadata.title,
+        artist: metadata.artist,
+        album: metadata.album,
+        year: metadata.year,
+        src: url,
+        image: metadata.picture || 'mus/favicon1.png',
+        isLocal: true,
+        file: file
+      };
+      
+      songs.push(newSong);
+      
+    } catch (error) {
+      console.error('Error procesando archivo:', error);
+      const url = URL.createObjectURL(file);
+      songs.push({
+        title: file.name.replace(/\.[^/.]+$/, ""),
+        artist: "Artista desconocido",
+        album: "Álbum desconocido",
+        year: "Año desconocido",
+        src: url,
+        image: 'mus/favicon1.png',
+        isLocal: true,
+        file: file
+      });
+    }
+  }
+  
+  render();
+  
+  showToast(`${files.length} canción(es) añadida(s)`);
+}
+
+async function load(i, autoPlay = true) {
+  if (songs.length === 0) return;
+  
+  if (i < 0) i = songs.length - 1;
+  if (i >= songs.length) i = 0;
+  currentIdx = i;
+  
+  const s = songs[currentIdx];
+  
+  titleEl.textContent = s.title || "—";
+  artistEl.textContent = s.artist || "—";
+  albumEl.textContent = s.album ? `Álbum: ${s.album}` : "—";
+  yearEl.textContent = s.year ? `Año: ${s.year}` : "—";
+  
+  const imageSrc = (s.easterEgg && eeState[s.title]) ? s.easterEgg : (s.image || 'mus/favicon1.png');
+  cover.src = imageSrc;
+  
+  cover.onerror = function() {
+    this.src = 'mus/favicon1.png';
+  };
+
+  audio.pause();
+  audio.src = '';
+  audio.removeAttribute('src');
+  
+  await new Promise(resolve => setTimeout(resolve, 50));
+  
+  audio.src = s.src;
+  
+  await new Promise(resolve => {
+    audio.addEventListener('loadedmetadata', resolve, { once: true });
+    audio.load();
+  });
+
+  render();
+  
+  btnPlay.style.display = 'inline-block';
+  btnPause.style.display = 'none';
+
+  if (autoPlay) {
+    try {
+      await audio.play();
+      btnPlay.style.display = 'none';
+      btnPause.style.display = 'inline-block';
+    } catch (e) {
+      btnPlay.style.display = 'inline-block';
+      btnPause.style.display = 'none';
+    }
+  }
+}
+
+function render() {
+  playlistEl.innerHTML = '';
+  songs.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = `song ${i === currentIdx ? 'active' : ''}`;
+    
+    const imgSrc = (s.easterEgg && eeState[s.title]) ? s.easterEgg : (s.image || 'mus/favicon1.png');
+    const isLocal = s.isLocal || false;
+    
+    d.innerHTML = `
+      <img class="thumb" src="${imgSrc}" alt="${s.title}" onerror="this.src='mus/favicon1.png'">
+      <div class="song-info">
+        <div class="song-title">${s.title}</div>
+        <div class="song-artist">${s.artist} ${s.album ? '• ' + s.album : ''} ${s.year ? '• ' + s.year : ''}</div>
+      </div>
+      ${isLocal ? '<button class="song-remove" title="Eliminar">✕</button>' : ''}
+    `;
+    
+    d.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('song-remove')) {
+        load(i, true);
+      }
+    });
+    
+    if (isLocal) {
+      const removeBtn = d.querySelector('.song-remove');
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeSong(i);
+      });
+    }
+    
+    playlistEl.appendChild(d);
+  });
+}
+
+function removeSong(index) {
+  if (songs[index].isLocal) {
+    URL.revokeObjectURL(songs[index].src);
+    
+    songs.splice(index, 1);
+    
+    if (currentIdx >= index && currentIdx > 0) {
+      currentIdx--;
+    }
+    
+    if (songs.length === 0) {
+      titleEl.textContent = "—";
+      artistEl.textContent = "—";
+      albumEl.textContent = "—";
+      yearEl.textContent = "—";
+      cover.src = 'mus/favicon1.png';
+      audio.pause();
+      audio.src = '';
+      btnPlay.style.display = 'inline-block';
+      btnPause.style.display = 'none';
+      bar.style.width = '0%';
+      tCur.textContent = "0:00";
+      tDur.textContent = "0:00";
+    } else {
+      if (currentIdx >= songs.length) {
+        currentIdx = songs.length - 1;
+      }
+      load(currentIdx, true);
+    }
+    
+    render();
+    showToast("Canción eliminada");
+  }
+}
+
+function shuffleSongs() {
+  if (!isShuffled) {
+    originalSongsOrder = [...songs];
+    
+    const shuffled = [...songs];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    songs = shuffled;
+    
+    const currentSong = originalSongsOrder[currentIdx];
+    const newIndex = songs.findIndex(song => 
+      song.title === currentSong.title && 
+      song.artist === currentSong.artist
+    );
+    if (newIndex !== -1) {
+      currentIdx = newIndex;
+    }
+    
+    isShuffled = true;
+    document.getElementById('shuffle').style.color = 'var(--accent)';
+    showToast("Playlist mezclada");
+  } else {
+    songs = [...originalSongsOrder];
+    
+    const currentSong = songs[currentIdx];
+    const originalIndex = originalSongsOrder.findIndex(song => 
+      song.title === currentSong.title && 
+      song.artist === currentSong.artist
+    );
+    if (originalIndex !== -1) {
+      currentIdx = originalIndex;
+    }
+    
+    isShuffled = false;
+    document.getElementById('shuffle').style.color = 'inherit';
+    showToast("Playlist ordenada");
+  }
+  
+  render();
+}
+
+btnPlay.onclick = () => { 
+  audio.play().then(() => {
+    btnPlay.style.display = 'none'; 
+    btnPause.style.display = 'inline-block'; 
+  }).catch(() => {
+    showToast("Error al reproducir");
+  });
+};
+
+btnPause.onclick = () => { 
+  audio.pause(); 
+  btnPause.style.display = 'none'; 
+  btnPlay.style.display = 'inline-block'; 
+};
+
+document.getElementById('prev').onclick = () => load(currentIdx - 1, true);
+document.getElementById('next').onclick = () => load(currentIdx + 1, true);
+
+document.getElementById('loop').onclick = () => {
+  isLooping = !isLooping;
+  audio.loop = isLooping;
+  document.getElementById('loop').style.color = isLooping ? 'var(--accent)' : 'inherit';
+  showToast(isLooping ? "Repetición activada" : "Repetición desactivada");
+};
+
+document.getElementById('shuffle').onclick = shuffleSongs;
+
+document.getElementById('filePick').onchange = (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length > 0) {
+    addLocalSongs(files);
+  }
+  e.target.value = '';
+};
+
+audio.ontimeupdate = () => {
+  const p = (audio.currentTime / audio.duration) * 100 || 0;
+  bar.style.width = p + '%';
+  const fmt = t => Math.floor(t/60)+':'+('0'+Math.floor(t%60)).slice(-2);
+  tCur.textContent = fmt(audio.currentTime);
+  tDur.textContent = isNaN(audio.duration) ? "0:00" : fmt(audio.duration);
+};
+
+audio.onended = () => {
+  if (!isLooping) {
+    load(currentIdx + 1, true);
+  }
+};
+
+document.getElementById('progressBar').onclick = (e) => {
+  const rect = document.getElementById('progressBar').getBoundingClientRect();
+  const pos = (e.clientX - rect.left) / rect.width;
+  if (!isNaN(audio.duration)) audio.currentTime = pos * audio.duration;
+};
+
+document.addEventListener('keydown', (e) => {
+  if (bootStarted && !bootInProgress) {
+    switch(e.key.toLowerCase()) {
+      case ' ':
+        e.preventDefault();
+        if (audio.paused) {
+          audio.play();
+          btnPlay.style.display = 'none';
+          btnPause.style.display = 'inline-block';
+        } else {
+          audio.pause();
+          btnPause.style.display = 'none';
+          btnPlay.style.display = 'inline-block';
+        }
+        break;
+      case 'arrowright':
+        e.preventDefault();
+        load(currentIdx + 1, true);
+        break;
+      case 'arrowleft':
+        e.preventDefault();
+        load(currentIdx - 1, true);
+        break;
+      case 'l':
+        e.preventDefault();
+        isLooping = !isLooping;
+        audio.loop = isLooping;
+        document.getElementById('loop').style.color = isLooping ? 'var(--accent)' : 'inherit';
+        showToast(isLooping ? "Repetición activada" : "Repetición desactivada");
+        break;
+      case 's':
+        if (e.ctrlKey) break;
+        e.preventDefault();
+        shuffleSongs();
+        break;
+    }
+  }
+});
+
+initEE();
+load(0, false);
+</script>
+</body>
+</html>
